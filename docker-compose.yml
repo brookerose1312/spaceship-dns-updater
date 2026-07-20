@@ -1,0 +1,10 @@
+name: spaceship-dns-updater
+
+services:
+  spaceship-dns-updater:
+    build: .
+    container_name: spaceship-dns-updater
+    restart: unless-stopped
+    env_file: ${ENV_FILE:-.env}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
