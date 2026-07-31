@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 
@@ -48,45 +48,76 @@ class TestRunPollingLoop:
         reconcile.assert_called_once_with(config, "1.2.3.4")
         email.assert_called_once_with(config, "1.2.3.4", results={"@": True})
 
-    def test_failed_startup_reconciliation_retries(self, config):
+    def test_failed_startup_reconciliation_retries(self, config_multi_host):
         with (
             patch("updater.get_ip_address", return_value="1.2.3.4"),
             patch(
                 "updater.reconcile_hosts",
-                side_effect=[{"@": False}, {"@": True}],
+                side_effect=[
+                    {"@": True, "*": False},
+                    {"@": True, "*": True},
+                ],
             ) as reconcile,
-            patch("updater.send_email"),
+            patch("updater.send_email") as email,
             patch.object(shutdown_event, "is_set", side_effect=[False, False, True]),
             patch.object(shutdown_event, "wait", return_value=False),
             patch("updater.Path"),
         ):
-            run_polling_loop(config)
-        assert reconcile.call_count == 2
+            run_polling_loop(config_multi_host)
+        assert reconcile.call_args_list == [
+            call(config_multi_host, "1.2.3.4"),
+            call(config_multi_host, "1.2.3.4"),
+        ]
+        email.assert_called_once_with(
+            config_multi_host,
+            "1.2.3.4",
+            results={"@": True, "*": True},
+        )
 
     def test_unchanged_ip_is_not_reconciled_every_check(self, config):
         with (
             patch("updater.get_ip_address", return_value="1.2.3.4"),
             patch("updater.reconcile_hosts", return_value={"@": True}) as reconcile,
-            patch("updater.send_email"),
+            patch("updater.send_email") as email,
             patch.object(shutdown_event, "is_set", side_effect=[False, False, True]),
             patch.object(shutdown_event, "wait", return_value=False),
             patch("updater.Path"),
         ):
             run_polling_loop(config)
-        reconcile.assert_called_once()
+        reconcile.assert_called_once_with(config, "1.2.3.4")
+        email.assert_called_once_with(config, "1.2.3.4", results={"@": True})
 
     def test_ip_change_triggers_reconciliation(self, config):
         with (
             patch("updater.get_ip_address", side_effect=["1.1.1.1", "2.2.2.2"]),
             patch("updater.reconcile_hosts", return_value={"@": True}) as reconcile,
-            patch("updater.send_email"),
+            patch("updater.send_email") as email,
             patch.object(shutdown_event, "is_set", side_effect=[False, False, True]),
             patch.object(shutdown_event, "wait", return_value=False),
             patch("updater.Path"),
         ):
             run_polling_loop(config)
-        assert reconcile.call_count == 2
-        reconcile.assert_called_with(config, "2.2.2.2")
+        assert reconcile.call_args_list == [
+            call(config, "1.1.1.1"),
+            call(config, "2.2.2.2"),
+        ]
+        assert email.call_args_list == [
+            call(config, "1.1.1.1", results={"@": True}),
+            call(config, "2.2.2.2", results={"@": True}),
+        ]
+
+    def test_missing_initial_ip_retries_lookup_and_reconciles(self, config):
+        with (
+            patch("updater.get_ip_address", side_effect=[None, "1.2.3.4"]),
+            patch("updater.reconcile_hosts", return_value={"@": True}) as reconcile,
+            patch("updater.send_email") as email,
+            patch.object(shutdown_event, "is_set", side_effect=[False, False, True]),
+            patch.object(shutdown_event, "wait", return_value=False),
+            patch("updater.Path"),
+        ):
+            run_polling_loop(config)
+        reconcile.assert_called_once_with(config, "1.2.3.4")
+        email.assert_called_once_with(config, "1.2.3.4", results={"@": True})
 
 
 class TestMain:

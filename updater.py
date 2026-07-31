@@ -428,7 +428,7 @@ def run_polling_loop(config: Config) -> None:
     """Continuously monitor IP changes and reconcile Spaceship DNS."""
     logger.info("Check interval: %d minutes", config.check_interval)
     logger.info("Periodic reconciliation interval: %d days", config.force_update_days)
-    previous_ip: str | None = None
+    synced_ip: str | None = None
     checks = 0
 
     while not shutdown_event.is_set():
@@ -441,19 +441,19 @@ def run_polling_loop(config: Config) -> None:
                 config.force_update_checks,
             )
             periodic = checks >= config.force_update_checks
-            if previous_ip != ip_address or periodic:
-                if previous_ip is None:
-                    logger.info("Running startup reconciliation")
+            if synced_ip != ip_address or periodic:
+                if synced_ip is None:
+                    logger.info("Synchronizing DNS on startup to %s", ip_address)
                 elif periodic:
                     logger.info(
                         "Running periodic reconciliation after %d checks", checks
                     )
                 else:
-                    logger.info("IP address changed: %s -> %s", previous_ip, ip_address)
+                    logger.info("IP address changed: %s -> %s", synced_ip, ip_address)
 
                 results = reconcile_hosts(config, ip_address)
                 if all(results.values()):
-                    previous_ip = ip_address
+                    synced_ip = ip_address
                     checks = 0
                     send_email(config, ip_address, results=results)
                 else:
