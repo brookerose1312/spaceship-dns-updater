@@ -87,6 +87,62 @@ class TestGetDnsRecords:
 
 
 class TestUpdateDyndns:
+    def test_refuses_host_not_listed_in_config(self, config):
+        with (
+            patch("updater.requests.get") as get,
+            patch("updater.requests.put") as put,
+            patch("updater.requests.delete") as delete,
+        ):
+            assert update_dyndns(config, "www", "1.2.3.4") is False
+
+        get.assert_not_called()
+        put.assert_not_called()
+        delete.assert_not_called()
+
+    def test_ignores_spacemail_and_unrelated_records(self, config):
+        records = [
+            {
+                "type": "MX",
+                "name": "@",
+                "exchange": "mx1.spacemail.com",
+                "group": {"type": "product"},
+            },
+            {
+                "type": "TXT",
+                "name": "@",
+                "value": "v=spf1 include:spf.spacemail.com ~all",
+                "group": {"type": "product"},
+            },
+            {
+                "type": "CNAME",
+                "name": "mail",
+                "target": "mail.spacemail.com",
+                "group": {"type": "product"},
+            },
+            {
+                "type": "A",
+                "name": "www",
+                "address": "9.9.9.9",
+                "group": {"type": "custom"},
+            },
+        ]
+        with (
+            patch(
+                "updater.requests.get",
+                return_value=mock_response(json_data={"items": records, "total": 4}),
+            ),
+            patch(
+                "updater.requests.put", return_value=mock_response(status=204)
+            ) as put,
+            patch("updater.requests.delete") as delete,
+        ):
+            assert update_dyndns(config, "@", "1.2.3.4") is True
+
+        assert put.call_args.kwargs["json"]["items"] == [
+            {"type": "A", "name": "@", "address": "1.2.3.4", "ttl": 300}
+        ]
+        delete.assert_not_called()
+
     def test_exact_record_match_is_read_only(self, config):
         records = [
             {

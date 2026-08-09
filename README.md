@@ -23,7 +23,7 @@ It monitors your public IPv4 address and reconciles selected custom `A` records 
    - `dnsrecords:write`
 3. Create custom `A` records for the hosts you want the updater to manage, or let the updater create missing records on its first run.
 
-The updater manages custom `A` records only. It will not alter product-managed records, `AAAA` records, or unrelated DNS entries.
+The updater manages custom `A` records only for the exact hosts listed in `SPACESHIP_HOST`. It will not alter Spacemail/product-managed records, other record types, or unconfigured hosts.
 
 ## Quick Start with Docker
 
@@ -73,7 +73,7 @@ uv run updater.py --force
 
 | Variable | Required | Default | Description |
 |---|---:|---:|---|
-| `SPACESHIP_HOST` | Yes | — | Comma-separated record names (`@`, `*`, `www`, and so on) |
+| `SPACESHIP_HOST` | Yes | — | Comma-separated record names to manage (`@`, `*`, `www`, and so on) |
 | `SPACESHIP_DOMAIN` | Yes | — | Fully qualified domain name, such as `example.com` |
 | `SPACESHIP_API_KEY` | Yes | — | Spaceship API key |
 | `SPACESHIP_API_SECRET` | Yes | — | Spaceship API secret |

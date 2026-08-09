@@ -313,6 +313,9 @@ def _delete_a_records(config: Config, host: str, records: list[dict[str, Any]]) 
 def update_dyndns(config: Config, host: str, ip_address: str) -> bool:
     """Reconcile a custom Spaceship A record with the public IPv4 address."""
     display = Config.display_host(host, config.domain)
+    if host not in config.hosts:
+        logger.error("Refusing to manage unconfigured host %s", display)
+        return False
     logger.info("Reconciling Spaceship DNS for %s", display)
 
     records = get_dns_records(config)
