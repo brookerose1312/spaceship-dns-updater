@@ -5,6 +5,6 @@ services:
     build: .
     container_name: spaceship-dns-updater
     restart: unless-stopped
-    env_file: ${ENV_FILE:-.env}
+    env_file: stack.env
     volumes:
       - /etc/localtime:/etc/localtime:ro
